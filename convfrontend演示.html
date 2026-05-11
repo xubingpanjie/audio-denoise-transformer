@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConvFrontend 局部谐波特征演示器</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e2f;
+            color: #e0e0e0;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h2, h3 { color: #ffffff; border-bottom: 1px solid #3a3a5a; padding-bottom: 10px; }
+        .control-panel {
+            background: #2a2a40;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .control-group { margin-bottom: 15px; display: flex; align-items: center; }
+        label { width: 140px; font-weight: bold; color: #a5b4fc; }
+        input[type="range"] { flex-grow: 1; margin: 0 15px; cursor: pointer; }
+        .value-display { width: 40px; text-align: right; font-weight: bold; color: #fff; }
+        .radio-group label { width: auto; margin-right: 15px; font-weight: normal; color: #e0e0e0; cursor: pointer; }
+        canvas {
+            background: #252538;
+            border-radius: 10px;
+            border: 1px solid #3a3a5a;
+            width: 100%;
+            margin-bottom: 20px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .description { font-size: 0.9em; color: #8b8fb0; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>ConvFrontend 局部谐波提取演示</h2>
+    <p class="description">模拟 1D 卷积窗口在 257 维频率轴上的滑动，观察模型如何捕获"梳齿"状的语音谐波特征。</p>
+
+    <div class="control-panel">
+        <div class="control-group">
+            <label>基频 (F0) 间距:</label>
+            <input type="range" id="f0-slider" min="8" max="40" value="20">
+            <span class="value-display" id="f0-val">20</span>
+        </div>
+        <div class="control-group">
+            <label>滑动窗口位置:</label>
+            <input type="range" id="pos-slider" min="0" max="250" value="60">
+            <span class="value-display" id="pos-val">60</span>
+        </div>
+        <div class="control-group">
+            <label>卷积核大小:</label>
+            <div class="radio-group">
+                <label><input type="radio" name="kernel" value="7" checked> 7 (大核-宏观轮廓)</label>
+                <label><input type="radio" name="kernel" value="5"> 5 (中核-精细提取)</label>
+                <label><input type="radio" name="kernel" value="3"> 3 (小核-极窄细节)</label>
+            </div>
+        </div>
+    </div>
+
+    <h3>全局幅度谱 (257 维)</h3>
+    <p class="description">蓝线代表当前音频帧的频率能量分布。黄色高亮框代表 1D 卷积核当前的感受野。</p>
+    <canvas id="mainCanvas" height="200"></canvas>
+
+    <h3>卷积核感受野 (模型局部视野)</h3>
+    <p class="description">展示高亮框内的数据点。通过这一步，模型能感知到这几个连续频率点是否构成了"山峰"(谐波)。</p>
+    <canvas id="zoomCanvas" height="150"></canvas>
+
+    <script>
+        const mainCtx = document.getElementById('mainCanvas').getContext('2d');
+        const zoomCtx = document.getElementById('zoomCanvas').getContext('2d');
+        const width = 900; 
+        document.getElementById('mainCanvas').width = width;
+        document.getElementById('zoomCanvas').width = width;
+        
+        const POINTS = 257; // 对应你的 STFT 257 个频点
+
+        function draw() {
+            const f0 = parseInt(document.getElementById('f0-slider').value);
+            let pos = parseInt(document.getElementById('pos-slider').value);
+            const kernel = parseInt(document.querySelector('input[name="kernel"]:checked').value);
+
+            // 防止窗口滑出右侧边界
+            if (pos + kernel > POINTS) {
+                pos = Math.max(0, POINTS - kernel);
+                document.getElementById('pos-slider').value = pos;
+            }
+
+            document.getElementById('f0-val').innerText = f0;
+            document.getElementById('pos-val').innerText = pos;
+
+            // 1. 生成模拟频谱数据
+            let spectrum = new Array(POINTS).fill(0).map(() => Math.random() * 0.15); // 底噪
+            // 叠加谐波峰 (F0 的整数倍)
+            for(let i = f0; i < POINTS; i += f0) {
+                spectrum[i] = 0.8 + Math.random() * 0.2; // 主峰
+                if(i - 1 >= 0) spectrum[i-1] += 0.4;     // 左侧裙边
+                if(i + 1 < POINTS) spectrum[i+1] += 0.4; // 右侧裙边
+                if(i - 2 >= 0) spectrum[i-2] += 0.15;
+                if(i + 2 < POINTS) spectrum[i+2] += 0.15;
+            }
+
+            // 2. 绘制全局频谱 (Main Canvas)
+            mainCtx.clearRect(0, 0, width, 200);
+            const dx = width / POINTS;
+            
+            // 画频谱线
+            mainCtx.beginPath();
+            mainCtx.moveTo(0, 200 - spectrum[0] * 180);
+            for(let i = 1; i < POINTS; i++) {
+                mainCtx.lineTo(i * dx, 200 - spectrum[i] * 180);
+            }
+            mainCtx.strokeStyle = '#60a5fa';
+            mainCtx.lineWidth = 2;
+            mainCtx.stroke();
+
+            // 画卷积滑动窗口 (高亮框)
+            const winX = pos * dx;
+            const winW = kernel * dx;
+            mainCtx.fillStyle = 'rgba(251, 191, 36, 0.3)'; // 半透明黄
+            mainCtx.fillRect(winX, 0, winW, 200);
+            mainCtx.strokeStyle = '#fbbf24';
+            mainCtx.lineWidth = 1;
+            mainCtx.strokeRect(winX, 0, winW, 200);
+
+            // 3. 绘制局部放大感受野 (Zoom Canvas)
+            zoomCtx.clearRect(0, 0, width, 150);
+            const zoomDx = width / (kernel - 1 || 1); // 撑满整个宽度
+            
+            zoomCtx.beginPath();
+            for(let i = 0; i < kernel; i++) {
+                const x = i * zoomDx;
+                const y = 130 - spectrum[pos + i] * 110;
+                if(i === 0) zoomCtx.moveTo(x, y);
+                else zoomCtx.lineTo(x, y);
+            }
+            zoomCtx.strokeStyle = '#fbbf24';
+            zoomCtx.lineWidth = 4;
+            zoomCtx.stroke();
+
+            // 绘制感受野上的具体数据点
+            zoomCtx.fillStyle = '#ffffff';
+            for(let i = 0; i < kernel; i++) {
+                const x = i * zoomDx;
+                const y = 130 - spectrum[pos + i] * 110;
+                zoomCtx.beginPath();
+                zoomCtx.arc(x, y, 6, 0, Math.PI * 2);
+                zoomCtx.fill();
+            }
+        }
+
+        // 绑定事件监听器
+        document.getElementById('f0-slider').addEventListener('input', draw);
+        document.getElementById('pos-slider').addEventListener('input', draw);
+        document.querySelectorAll('input[name="kernel"]').forEach(r => r.addEventListener('change', draw));
+
+        // 初始化绘制
+        draw();
+    </script>
+</body>
+</html>

@@ -15,8 +15,13 @@ checkpoints/*.onnx
 # Generated outputs
 outputs/transformer/
 outputs/rnnoise/
+outputs/rnnoise_v2/
+outputs/rnnoise_v3/
 outputs/gtcrn/
+outputs/gtcrn_v2/
+outputs/gtcrn_v3/
 outputs/noisereduce/
+outputs/noisereduce_v2/
 outputs/training_*.log
 outputs/batch_inference.log
 outputs/metrics/
