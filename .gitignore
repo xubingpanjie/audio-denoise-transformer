@@ -1,0 +1,59 @@
+# Data (too large)
+data/clean/
+data/noise/
+data/timit_mixed/*.wav
+data/timit_mixed/metadata_full.csv
+
+# Virtual environment
+venv312/
+venv/
+
+# Checkpoints
+checkpoints/*.pt
+checkpoints/*.onnx
+
+# Generated outputs
+outputs/transformer/
+outputs/rnnoise/
+outputs/gtcrn/
+outputs/noisereduce/
+outputs/training_*.log
+outputs/batch_inference.log
+outputs/metrics/
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Reference (not ours)
+awesome-denoiser-main-参考/
+
+# Temp files
+*.tmp
+test_*.wav
+
+# Old thesis
+毕业论文.docx
+毕业设计模板_claude.doc
+
+# Extra output files
+chat.txt
+chat.zip
+*.bak
+
+# Demo data
+data/mixed/
+data/splits/
+outputs/features/
+
+# Claude config
+.claude/settings.local.json
+
