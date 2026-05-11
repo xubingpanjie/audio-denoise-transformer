@@ -48,7 +48,13 @@
       "Bash(git config *)",
       "Bash(curl *)",
       "Bash(git remote *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git rm *)",
+      "Bash(grep -n '\\\\$\\\\$' 毕业论文_正文.md)",
+      "Bash(pandoc --version)",
+      "Bash(\"/c/Program Files/Pandoc/pandoc\" --version)",
+      "Read(//c/Program Files/**)",
+      "Read(//c//**)"
     ]
   }
 }

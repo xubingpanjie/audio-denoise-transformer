@@ -34,6 +34,21 @@ for (let i = 0; i < lines.length; i++) {
   }
   if (inCodeBlock) continue;
 
+  // Math formulas: $$ ... $$ → render as italic centered text
+  if (line.trim().startsWith("$$") && line.trim().endsWith("$$")) {
+    const formula = line.trim().slice(2, -2).trim();
+    children.push(
+      new Paragraph({
+        spacing: { before: 80, after: 80 },
+        alignment: AlignmentType.CENTER,
+        children: [
+          new TextRun({ text: formula, font: "Times New Roman", size: 22, italics: true }),
+        ],
+      })
+    );
+    continue;
+  }
+
   // Heading 1 (# )
   if (line.startsWith("# ")) {
     const text = line.slice(2).trim();
@@ -123,6 +138,7 @@ function parseInlineFormatting(text) {
   while (remaining.length > 0) {
     const boldMatch = remaining.match(/^(.*?)\*\*(.+?)\*\*/);
     const italicMatch = remaining.match(/^(.*?)\*(.+?)\*/);
+    const inlineMath = remaining.match(/^(.*?)\$(.+?)\$/);
     const inlineCode = remaining.match(/^(.*?)`(.+?)`/);
 
     let matchType = null;
@@ -135,6 +151,10 @@ function parseInlineFormatting(text) {
     if (italicMatch && italicMatch.index < matchIdx) {
       matchType = "italic";
       matchIdx = italicMatch.index;
+    }
+    if (inlineMath && inlineMath.index < matchIdx) {
+      matchType = "math";
+      matchIdx = inlineMath.index;
     }
     if (inlineCode && inlineCode.index < matchIdx) {
       matchType = "code";
@@ -149,6 +169,7 @@ function parseInlineFormatting(text) {
     let match;
     if (matchType === "bold") match = boldMatch;
     else if (matchType === "italic") match = italicMatch;
+    else if (matchType === "math") match = inlineMath;
     else match = inlineCode;
 
     if (match[1].length > 0)
@@ -157,6 +178,8 @@ function parseInlineFormatting(text) {
     if (matchType === "bold")
       segments.push({ text: match[2], bold: true, italic: false });
     else if (matchType === "italic")
+      segments.push({ text: match[2], bold: false, italic: true });
+    else if (matchType === "math")
       segments.push({ text: match[2], bold: false, italic: true });
     else segments.push({ text: match[2], bold: false, italic: false });
 
